@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f6fb;
+  --foreground: #121826;
+  --primary: #b5121b;
+  --primary-700: #8f0f17;
+  --accent: #f4ab1c;
+  --muted: #e9edf5;
+  --card: #ffffff;
+  --border: #dde3ee;
+  --shadow: 0 20px 60px rgba(18, 24, 38, 0.08);
 }
 
 @theme inline {
@@ -14,13 +21,102 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #f4f6fb;
+    --foreground: #121826;
   }
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at top left, rgba(181, 18, 27, 0.06), transparent 32%),
+    radial-gradient(circle at top right, rgba(244, 171, 28, 0.09), transparent 28%),
+    var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.site-header {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(221, 227, 238, 0.9);
+  transition: all 0.3s ease;
+}
+.brand-banner {
+  background: linear-gradient(135deg, #a50f18 0%, #6f0d14 100%);
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+.brand-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 30%), radial-gradient(circle at 80% 10%, rgba(255,255,255,0.08), transparent 25%), radial-gradient(circle at 50% 80%, rgba(255,255,255,0.05), transparent 35%);
+  pointer-events: none;
+}
+.brand-banner > div {
+  position: relative;
+  z-index: 1;
+}
+.section-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.control-panel {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(221, 227, 238, 0.9);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+}
+.hero-cta {
+  background: linear-gradient(135deg, var(--accent), #ffbf3b);
+  color: #141414;
+  padding: 0.8rem 1.35rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(244, 171, 28, 0.26);
+}
+.filter-chip {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--border);
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(18, 24, 38, 0.04);
+}
+.search-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-700));
+  color: white;
+  box-shadow: 0 12px 24px rgba(181, 18, 27, 0.22);
+}
+.soft-title {
+  letter-spacing: -0.03em;
+}
+.stat-card {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(221, 227, 238, 0.9);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
