@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import VenueCard from "../components/VenueCard";
+import UserMenu from "../components/UserMenu";
 
 type Venue = { id: string; name: string; image: string; price: number; location: string };
 
@@ -10,6 +11,7 @@ export default function VenuesPage() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [user, setUser] = useState<any | null>(null);
 
   useEffect(() => {
     fetch("/api/venues")
@@ -17,6 +19,16 @@ export default function VenuesPage() {
       .then((data) => setVenues(data))
       .catch(() => setVenues([]))
       .finally(() => setLoading(false));
+  }, []);
+
+  // check auth state to show/hide Masuk/Daftar
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => { if (mounted && d?.user) setUser(d.user); })
+      .catch(() => {})
+    return () => { mounted = false };
   }, []);
 
   const filtered = venues.filter((v) => v.name.toLowerCase().includes(query.toLowerCase()) || v.location.toLowerCase().includes(query.toLowerCase()));
@@ -34,12 +46,16 @@ export default function VenuesPage() {
             />
           </Link>
           <div className="flex gap-2 sm:gap-3">
-            <Link href="/login" className="whitespace-nowrap rounded-full border border-[var(--primary)]/15 bg-white px-3 py-2 text-xs font-medium text-[var(--primary)] transition hover:bg-zinc-50 sm:px-4 sm:text-sm">
-              Masuk
-            </Link>
-            <Link href="/register" className="whitespace-nowrap rounded-full bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-black transition hover:opacity-95 sm:px-4 sm:text-sm">
-              Daftar
-            </Link>
+            {user ? <UserMenu /> : (
+              <>
+                <Link href="/login" className="whitespace-nowrap rounded-full border border-[var(--primary)]/15 bg-white px-3 py-2 text-xs font-medium text-[var(--primary)] transition hover:bg-zinc-50 sm:px-4 sm:text-sm">
+                  Masuk
+                </Link>
+                <Link href="/register" className="whitespace-nowrap rounded-full bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-black transition hover:opacity-95 sm:px-4 sm:text-sm">
+                  Daftar
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>

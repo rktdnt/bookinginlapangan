@@ -1,0 +1,39 @@
+<svg width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="320" height="320" rx="32" fill="#ffffff"/>
+  <rect x="24" y="24" width="272" height="272" rx="24" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <rect x="44" y="44" width="60" height="60" rx="10" fill="#0F172A"/>
+  <rect x="60" y="60" width="28" height="28" rx="4" fill="#ffffff"/>
+  <rect x="216" y="44" width="60" height="60" rx="10" fill="#0F172A"/>
+  <rect x="232" y="60" width="28" height="28" rx="4" fill="#ffffff"/>
+  <rect x="44" y="216" width="60" height="60" rx="10" fill="#0F172A"/>
+  <rect x="60" y="232" width="28" height="28" rx="4" fill="#ffffff"/>
+  <rect x="126" y="44" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="150" y="44" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="174" y="44" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="126" y="68" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="150" y="68" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="174" y="68" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="126" y="92" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="150" y="92" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="174" y="92" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="126" y="126" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="150" y="126" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="174" y="126" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="198" y="126" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="126" y="150" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="174" y="150" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="198" y="150" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="126" y="174" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="150" y="174" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="174" y="174" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="198" y="174" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="126" y="198" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="150" y="198" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="198" y="198" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="126" y="222" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="150" y="222" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="174" y="222" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="198" y="222" width="16" height="16" rx="3" fill="#0F172A"/>
+  <rect x="222" y="222" width="16" height="16" rx="3" fill="#0F172A"/>
+  <text x="160" y="286" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#0F172A">QRIS</text>
+</svg>
