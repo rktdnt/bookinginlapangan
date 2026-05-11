@@ -29,7 +29,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     const existingRows = (await query(
-      "SELECT image FROM venues WHERE id = ? LIMIT 1",
+      "SELECT image FROM venues WHERE id = ? AND is_deleted = 0 LIMIT 1",
       [id]
     )) as any[];
 
@@ -86,7 +86,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   try {
     const { id } = await params;
-    await query("DELETE FROM venues WHERE id = ?", [id]);
+    await query("UPDATE venues SET is_deleted = 1 WHERE id = ?", [id]);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message || "Failed to delete venue" }, { status: 500 });

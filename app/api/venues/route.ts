@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   try {
     if (id) {
       const rows = await query(
-        "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, size, surface_type, hours, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues WHERE id = ? LIMIT 1",
+        "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, size, surface_type, hours, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues WHERE id = ? AND is_deleted = 0 LIMIT 1",
         [id]
       );
       const r = (rows as any[])[0] || null;
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     }
 
     const rows = await query(
-      "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, size, surface_type, hours, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues ORDER BY name ASC LIMIT 200"
+      "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, size, surface_type, hours, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues WHERE is_deleted = 0 ORDER BY name ASC LIMIT 200"
     );
     // parse JSON fields
     const parsed = (rows as any[]).map((r) => {
