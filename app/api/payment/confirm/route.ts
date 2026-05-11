@@ -6,6 +6,28 @@ import crypto from "crypto";
 import { query } from "../../../../lib/db";
 import { SESSION_COOKIE_NAME, hashSessionToken } from "../../../../lib/auth";
 
+async function updateBookingPayment(
+  bookingId: string,
+  status: "pending" | "confirmed",
+  method: "qris" | "transfer",
+  proofPath: string | null,
+  proofName: string | null
+) {
+  try {
+    await query(
+      `UPDATE bookings SET status = ?, payment_method = ?, payment_proof_path = ?, payment_proof_name = ? WHERE id = ?`,
+      [status, method, proofPath, proofName, bookingId]
+    );
+  } catch (error: any) {
+    // Backward compatibility when migration 005 is not applied yet.
+    if (error?.code === "ER_BAD_FIELD_ERROR") {
+      await query(`UPDATE bookings SET status = ? WHERE id = ?`, [status, bookingId]);
+      return;
+    }
+    throw error;
+  }
+}
+
 async function readPayload(request: Request) {
   const contentType = request.headers.get("content-type") || "";
 
@@ -67,10 +89,7 @@ export async function POST(request: Request) {
     }
 
     if (paymentMethod === "qris") {
-      await query(
-        `UPDATE bookings SET status = ?, payment_method = ?, payment_proof_path = NULL, payment_proof_name = NULL WHERE id = ?`,
-        ["confirmed", "qris", bookingId]
-      );
+      await updateBookingPayment(bookingId, "confirmed", "qris", null, null);
 
       return NextResponse.json({ success: true, bookingId, status: "confirmed", requiresAdminConfirmation: false });
     }
@@ -91,10 +110,7 @@ export async function POST(request: Request) {
       await mkdir(uploadDir, { recursive: true });
       await writeFile(path.join(uploadDir, fileName), buffer);
 
-      await query(
-        `UPDATE bookings SET status = ?, payment_method = ?, payment_proof_path = ?, payment_proof_name = ? WHERE id = ?`,
-        ["pending", "transfer", relativePath, proofFile.name, bookingId]
-      );
+      await updateBookingPayment(bookingId, "pending", "transfer", relativePath, proofFile.name);
 
       return NextResponse.json({
         success: true,
@@ -112,10 +128,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: "Payment failed: Invalid card" }, { status: 400 });
       }
 
-      await query(
-        `UPDATE bookings SET status = ?, payment_method = ?, payment_proof_path = NULL, payment_proof_name = NULL WHERE id = ?`,
-        ["confirmed", "qris", bookingId]
-      );
+      await updateBookingPayment(bookingId, "confirmed", "qris", null, null);
 
       return NextResponse.json({ success: true, bookingId, status: "confirmed", requiresAdminConfirmation: false });
     }

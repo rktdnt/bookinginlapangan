@@ -41,14 +41,31 @@ export default async function AdminPage() {
 
   const stats = statsResult[0] || {};
 
-  // Fetch recent bookings
-  const recentBookings = await query(
-    `SELECT b.id, b.customer_name, b.booking_date, b.booking_time, b.status, b.payment_method, b.payment_proof_path, v.name as venue_name
-     FROM bookings b
-     JOIN venues v ON b.venue_id = v.id
-     ORDER BY b.created_at DESC
-     LIMIT 10`
-  ) as any[];
+  // Fetch recent bookings (with fallback for DBs that do not yet have payment columns)
+  let recentBookings: any[] = [];
+  try {
+    recentBookings = (await query(
+      `SELECT b.id, b.customer_name, b.booking_date, b.booking_time, b.status, b.payment_method, b.payment_proof_path, v.name as venue_name
+       FROM bookings b
+       JOIN venues v ON b.venue_id = v.id
+       ORDER BY b.created_at DESC
+       LIMIT 10`
+    )) as any[];
+  } catch (error: any) {
+    if (error?.code !== "ER_BAD_FIELD_ERROR") throw error;
+    recentBookings = (await query(
+      `SELECT b.id, b.customer_name, b.booking_date, b.booking_time, b.status, v.name as venue_name
+       FROM bookings b
+       JOIN venues v ON b.venue_id = v.id
+       ORDER BY b.created_at DESC
+       LIMIT 10`
+    )) as any[];
+    recentBookings = recentBookings.map((row) => ({
+      ...row,
+      payment_method: null,
+      payment_proof_path: null,
+    }));
+  }
 
   const formattedDate = new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   const formatBookingDate = (value: unknown) => {
