@@ -28,23 +28,23 @@ export async function GET(request: Request) {
   try {
     if (id) {
       const rows = await query(
-        "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues WHERE id = ? LIMIT 1",
+        "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, size, surface_type, hours, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues WHERE id = ? LIMIT 1",
         [id]
       );
       const r = (rows as any[])[0] || null;
       if (r) {
         try {
           r.facilities = JSON.parse(String(r.facilities));
-        } catch {}
+        } catch { r.facilities = []; }
         try {
           r.details = JSON.parse(String(r.details));
-        } catch {}
+        } catch { r.details = {}; }
       }
       return NextResponse.json(r || null);
     }
 
     const rows = await query(
-      "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues ORDER BY name ASC LIMIT 200"
+      "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, size, surface_type, hours, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues ORDER BY name ASC LIMIT 200"
     );
     // parse JSON fields
     const parsed = (rows as any[]).map((r) => {
@@ -77,6 +77,9 @@ export async function POST(request: Request) {
     const description = String(formData.get("description") || "").trim();
     const facilitiesRaw = String(formData.get("facilities") || "").trim();
     const detailsRaw = String(formData.get("details") || "").trim();
+    const size = String(formData.get("size") || "").trim();
+    const surface_type = String(formData.get("surface_type") || "").trim();
+    const hours = String(formData.get("hours") || "").trim();
     const imageFile = formData.get("image");
 
     if (!name || !price || !location || !description) {
@@ -119,14 +122,14 @@ export async function POST(request: Request) {
       detailsJson = JSON.stringify({ note: detailsRaw });
     }
 
-    await query(
-      "INSERT INTO venues (id, name, image, price, location, description, facilities, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [id, name, imagePath, price, location, description, facilitiesJson, detailsJson]
+    const res = await query(
+      "INSERT INTO venues (id, name, image, price, location, description, facilities, size, surface_type, hours, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [id, name, imagePath, price, location, description, facilitiesJson, size, surface_type, hours, detailsJson]
     );
 
     return NextResponse.json({
       success: true,
-      venue: { id, name, image: imagePath, price, location, description, facilities: JSON.parse(facilitiesJson), details: JSON.parse(detailsJson) },
+      venue: { id, name, image: imagePath, price, location, description, facilities: JSON.parse(facilitiesJson), size, surface_type, hours },
     }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message || "Failed to create venue" }, { status: 500 });

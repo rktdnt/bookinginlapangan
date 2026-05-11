@@ -19,7 +19,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const location = String(formData.get("location") || "").trim();
     const description = String(formData.get("description") || "").trim();
     const facilitiesRaw = String(formData.get("facilities") || "").trim();
-    const detailsRaw = String(formData.get("details") || "").trim();
+    const size = String(formData.get("size") || "").trim();
+    const surface_type = String(formData.get("surface_type") || "").trim();
+    const hours = String(formData.get("hours") || "").trim();
     const imageFile = formData.get("image");
 
     if (!name || !price || !location || !description) {
@@ -62,21 +64,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }
     } catch {}
 
-    let detailsJson = JSON.stringify({});
-    try {
-      detailsJson = detailsRaw ? JSON.stringify(JSON.parse(detailsRaw)) : JSON.stringify({});
-    } catch {
-      detailsJson = JSON.stringify({ note: detailsRaw });
-    }
-
     await query(
-      "UPDATE venues SET name = ?, image = ?, price = ?, location = ?, description = ?, facilities = ?, details = ? WHERE id = ?",
-      [name, imagePath, price, location, description, facilitiesJson, detailsJson, id]
+      "UPDATE venues SET name = ?, image = ?, price = ?, location = ?, description = ?, facilities = ?, size = ?, surface_type = ?, hours = ? WHERE id = ?",
+      [name, imagePath, price, location, description, facilitiesJson, size, surface_type, hours, id]
     );
 
     return NextResponse.json({
       success: true,
-      venue: { id, name, image: imagePath, price, location, description, facilities: JSON.parse(facilitiesJson), details: JSON.parse(detailsJson) },
+      venue: { id, name, image: imagePath, price, location, description, facilities: JSON.parse(facilitiesJson), size, surface_type, hours },
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message || "Failed to update venue" }, { status: 500 });

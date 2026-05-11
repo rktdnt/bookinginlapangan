@@ -135,15 +135,15 @@ export default function VenueDetailPage() {
                   <div className="mt-6 grid gap-4 rounded-2xl bg-white p-5 sm:grid-cols-2 sm:p-6">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Ukuran Lapangan</p>
-                      <p className="mt-2 font-semibold text-[var(--foreground)]">40m × 20m</p>
+                      <p className="mt-2 font-semibold text-[var(--foreground)]">{venue.size || '40m × 20m'}</p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Tipe Lapangan</p>
-                      <p className="mt-2 font-semibold text-[var(--foreground)]">Sintetis Premium</p>
+                      <p className="mt-2 font-semibold text-[var(--foreground)]">{venue.surface_type || 'Sintetis Premium'}</p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Jam Operasional</p>
-                      <p className="mt-2 font-semibold text-[var(--foreground)]">06:00 - 22:00</p>
+                      <p className="mt-2 font-semibold text-[var(--foreground)]">{venue.hours || '06:00 - 22:00'}</p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Minimum Booking</p>

@@ -10,7 +10,9 @@ type Venue = {
   location: string;
   description?: string;
   facilities?: string[];
-  details?: Record<string, any>;
+  size?: string;
+  surface_type?: string;
+  hours?: string;
 };
 
 export default function VenueManagement() {
@@ -21,7 +23,9 @@ export default function VenueManagement() {
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
   const [facilitiesText, setFacilitiesText] = useState("");
-  const [detailsText, setDetailsText] = useState("");
+  const [size, setSize] = useState("");
+  const [surfaceType, setSurfaceType] = useState("");
+  const [hours, setHours] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +56,9 @@ export default function VenueManagement() {
       formData.append("location", location);
       formData.append("description", description);
       formData.append("facilities", facilitiesText);
-      formData.append("details", detailsText);
+      formData.append("size", size);
+      formData.append("surface_type", surfaceType);
+      formData.append("hours", hours);
       if (image) formData.append("image", image);
 
       const response = await fetch(editingVenueId ? `/api/venues/${editingVenueId}` : "/api/venues", {
@@ -86,7 +92,9 @@ export default function VenueManagement() {
     setLocation(venue.location);
     setDescription(venue.description || "");
     setFacilitiesText(Array.isArray(venue.facilities) ? venue.facilities.join(", ") : "");
-    setDetailsText(venue.details ? JSON.stringify(venue.details) : "");
+    setSize(venue.size || "");
+    setSurfaceType(venue.surface_type || "");
+    setHours(venue.hours || "");
     setImage(null);
     setError(null);
   }
@@ -146,19 +154,29 @@ export default function VenueManagement() {
             <input value={location} onChange={(e) => setLocation(e.target.value)} required className="w-full rounded-xl border border-[var(--border)] px-4 py-3 text-sm outline-none focus:border-[var(--primary)]" placeholder="Jakarta Selatan" />
           </div>
 
-          <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-semibold text-[var(--foreground)]">Deskripsi</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} required rows={4} className="w-full rounded-xl border border-[var(--border)] px-4 py-3 text-sm outline-none focus:border-[var(--primary)]" placeholder="Jelaskan fasilitas venue" />
-          </div>
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-semibold text-[var(--foreground)]">Deskripsi</label>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} required rows={4} className="w-full rounded-xl border border-[var(--border)] px-4 py-3 text-sm outline-none focus:border-[var(--primary)]" placeholder="Jelaskan fasilitas venue" />
+              </div>
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-[var(--foreground)]">Fasilitas (pisahkan dengan koma)</label>
             <input value={facilitiesText} onChange={(e) => setFacilitiesText(e.target.value)} className="w-full rounded-xl border border-[var(--border)] px-4 py-3 text-sm outline-none focus:border-[var(--primary)]" placeholder="Contoh: Pencahayaan, Kamar Mandi, Parkir" />
           </div>
 
-          <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-semibold text-[var(--foreground)]">Detail (JSON, optional)</label>
-            <textarea value={detailsText} onChange={(e) => setDetailsText(e.target.value)} rows={3} className="w-full rounded-xl border border-[var(--border)] px-4 py-3 text-sm outline-none focus:border-[var(--primary)]" placeholder='Contoh: {"size":"40x20","type":"Sintetis","hours":"06:00-22:00"}' />
+          <div className="grid gap-3 md:grid-cols-3 md:col-span-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-[var(--foreground)]">Ukuran (size)</label>
+              <input value={size} onChange={(e) => setSize(e.target.value)} className="w-full rounded-xl border border-[var(--border)] px-4 py-3 text-sm outline-none focus:border-[var(--primary)]" placeholder="Contoh: 40x20" />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-[var(--foreground)]">Tipe Permukaan</label>
+              <input value={surfaceType} onChange={(e) => setSurfaceType(e.target.value)} className="w-full rounded-xl border border-[var(--border)] px-4 py-3 text-sm outline-none focus:border-[var(--primary)]" placeholder="Contoh: Sintetis" />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-[var(--foreground)]">Jam Operasional</label>
+              <input value={hours} onChange={(e) => setHours(e.target.value)} className="w-full rounded-xl border border-[var(--border)] px-4 py-3 text-sm outline-none focus:border-[var(--primary)]" placeholder="Contoh: 06:00-22:00" />
+            </div>
           </div>
 
           <div className="md:col-span-2">
