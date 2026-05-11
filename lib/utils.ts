@@ -43,7 +43,7 @@ export function getStatusColor(status) {
 export function calculateDuration(startDate, endDate) {
   const start = new Date(startDate);
   const end = new Date(endDate);
-  const diffMs = end - start;
+    const diffMs = end.getTime() - start.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const hours = Math.floor(diffMins / 60);
   const minutes = diffMins % 60;

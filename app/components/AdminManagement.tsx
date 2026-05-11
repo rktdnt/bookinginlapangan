@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 
 export default function AdminManagement() {
-  const [admins, setAdmins] = useState([]);
+  const [admins, setAdmins] = useState<any[]>([]);
   const [formData, setFormData] = useState({ nama: '', email: '', password: '', no_hp: '' });
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +21,7 @@ export default function AdminManagement() {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     try {
@@ -42,7 +42,7 @@ export default function AdminManagement() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string | number) => {
     if (confirm('Are you sure?')) {
       try {
         const res = await fetch(`/api/admin/${id}`, { method: 'DELETE' });

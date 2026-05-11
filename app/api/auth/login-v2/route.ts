@@ -1,7 +1,8 @@
 import { query } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth";
+import { NextRequest } from "next/server";
 
-export async function POST(request) {
+export async function POST(request: NextRequest) {
   try {
     const { email, password, userType } = await request.json();
 
@@ -38,7 +39,7 @@ export async function POST(request) {
       user: userWithoutPassword,
       userType: userType,
     });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 400 });
   }
 }

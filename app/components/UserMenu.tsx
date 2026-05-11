@@ -53,7 +53,18 @@ export default function UserMenu() {
     router.refresh();
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="flex gap-2">
+        <Link href="/login" className="whitespace-nowrap rounded-full border border-[var(--primary)]/15 bg-white px-3 py-2 text-xs font-medium text-[var(--primary)] transition hover:bg-zinc-50 sm:px-4 sm:text-sm">
+          Masuk
+        </Link>
+        <Link href="/register" className="whitespace-nowrap rounded-full bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-black transition hover:opacity-95 sm:px-4 sm:text-sm">
+          Daftar
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="relative" ref={ref}>

@@ -1,17 +1,18 @@
 import { query } from "@/lib/db";
+import { NextRequest } from "next/server";
 
-export async function GET(request) {
+export async function GET(request: NextRequest) {
   try {
     const broadcast = await query(
       "SELECT b.*, a.nama FROM broadcast b JOIN admin a ON b.id_admin = a.id_admin"
     );
     return Response.json({ success: true, data: broadcast });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-export async function POST(request) {
+export async function POST(request: NextRequest) {
   try {
     const { id_admin, judul, isi, tanggal_kirim, tipe_penerima } = await request.json();
 
@@ -21,7 +22,7 @@ export async function POST(request) {
     );
 
     return Response.json({ success: true, message: "Broadcast created successfully" });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 400 });
   }
 }

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function BookingForm({ venueId }: { venueId: string }) {
+export default function BookingForm({ venueId, pricePerHour = 150000 }: { venueId: string; pricePerHour?: number }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
@@ -11,8 +11,6 @@ export default function BookingForm({ venueId }: { venueId: string }) {
   const [timeEnd, setTimeEnd] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const pricePerHour = 150000; // Rp 150,000
 
   // Calculate duration in hours from start and end time
   const calculateDuration = () => {
@@ -28,7 +26,7 @@ export default function BookingForm({ venueId }: { venueId: string }) {
   };
 
   const duration = calculateDuration();
-  const totalPrice = Math.ceil(duration) * pricePerHour;
+  const totalPrice = duration * pricePerHour;
 
   // When start time changes, update end time minutes to match
   const handleStartTimeChange = (newStartTime: string) => {
@@ -85,7 +83,7 @@ export default function BookingForm({ venueId }: { venueId: string }) {
       </div>
 
       {/* Date & Time */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-3">
         <div>
           <label className="block text-sm font-semibold text-[var(--foreground)] mb-2">
             Tanggal
@@ -99,32 +97,34 @@ export default function BookingForm({ venueId }: { venueId: string }) {
             className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
           />
         </div>
-        <div>
-          <label className="block text-sm font-semibold text-[var(--foreground)] mb-2">
-            Jam Mulai
-          </label>
-          <input
-            required
-            type="time"
-            value={timeStart}
-            onChange={(e) => handleStartTimeChange(e.target.value)}
-            className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-          />
-        </div>
-      </div>
 
-      {/* End Time */}
-      <div>
-        <label className="block text-sm font-semibold text-[var(--foreground)] mb-2">
-          Jam Akhir
-        </label>
-        <input
-          required
-          type="time"
-          value={timeEnd}
-          onChange={(e) => setTimeEnd(e.target.value)}
-          className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-        />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-semibold text-[var(--foreground)] mb-2">
+              Jam Mulai
+            </label>
+            <input
+              required
+              type="time"
+              value={timeStart}
+              onChange={(e) => handleStartTimeChange(e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-[var(--foreground)] mb-2">
+              Jam Akhir
+            </label>
+            <input
+              required
+              type="time"
+              value={timeEnd}
+              onChange={(e) => setTimeEnd(e.target.value)}
+              className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Duration Display */}
@@ -141,7 +141,7 @@ export default function BookingForm({ venueId }: { venueId: string }) {
             <p className="text-xs font-semibold uppercase tracking-widest text-[var(--primary)]">Total Harga</p>
             <p className="mt-1 text-2xl font-black text-[var(--primary)]">Rp {totalPrice.toLocaleString()}</p>
           </div>
-          <p className="text-xs text-zinc-600">{Math.ceil(duration)} jam × Rp {pricePerHour.toLocaleString()}</p>
+          <p className="text-xs text-zinc-600">{duration.toFixed(1)} jam × Rp {pricePerHour.toLocaleString()}</p>
         </div>
       </div>
 

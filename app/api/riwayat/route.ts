@@ -1,17 +1,18 @@
 import { query } from "@/lib/db";
+import { NextRequest } from "next/server";
 
-export async function GET(request) {
+export async function GET(request: NextRequest) {
   try {
     const riwayat = await query(
       "SELECT r.*, o.id_pelanggan, l.nama_lapangan FROM riwayat r JOIN orders o ON r.id_order = o.id_order JOIN lapangan l ON o.id_lapangan = l.id_lapangan"
     );
     return Response.json({ success: true, data: riwayat });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-export async function POST(request) {
+export async function POST(request: NextRequest) {
   try {
     const { id_order, status_akhir, tanggal_selesai, catatan } = await request.json();
 
@@ -21,7 +22,7 @@ export async function POST(request) {
     );
 
     return Response.json({ success: true, message: "Riwayat created successfully" });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 400 });
   }
 }

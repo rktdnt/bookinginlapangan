@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { query } from "../../lib/db";
 import { SESSION_COOKIE_NAME, hashSessionToken } from "../../lib/auth";
@@ -152,6 +153,17 @@ export default async function AdminPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="mb-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[var(--primary)]">Venue Management</p>
+            <h2 className="mt-1 text-xl font-bold text-[var(--foreground)]">Tambahkan venue dan upload gambar lapangan</h2>
+            <p className="mt-1 text-sm text-zinc-600">Kelola venue baru langsung dari panel admin.</p>
+          </div>
+          <Link href="/admin/venues" className="inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-95">
+            Buka Venue Manager
+          </Link>
         </div>
 
         {/* Status Breakdown */}

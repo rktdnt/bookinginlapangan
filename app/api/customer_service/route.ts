@@ -1,17 +1,18 @@
 import { query } from "@/lib/db";
+import { NextRequest } from "next/server";
 
-export async function GET(request) {
+export async function GET(request: NextRequest) {
   try {
     const cs = await query(
       "SELECT cs.*, p.nama as nama_pelanggan, m.nama_mitra FROM customer_service cs LEFT JOIN pelanggan p ON cs.id_pelanggan = p.id_pelanggan LEFT JOIN mitra m ON cs.id_mitra = m.id_mitra"
     );
     return Response.json({ success: true, data: cs });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-export async function POST(request) {
+export async function POST(request: NextRequest) {
   try {
     const { id_pelanggan, id_mitra, pesan, tanggal } = await request.json();
 
@@ -21,7 +22,7 @@ export async function POST(request) {
     );
 
     return Response.json({ success: true, message: "Customer service created successfully" });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 400 });
   }
 }

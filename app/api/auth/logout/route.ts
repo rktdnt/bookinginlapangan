@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const tokenHash = hashSessionToken(token);
     try {
       await query("DELETE FROM sessions WHERE token_hash = ?", [tokenHash]);
-    } catch (error) {
+    } catch (error: any) {
       // Ignore DB errors on logout; still clear cookie.
     }
   }

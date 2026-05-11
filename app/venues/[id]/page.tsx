@@ -205,7 +205,7 @@ export default function VenueDetailPage() {
               </button>
             </div>
             <div className="max-h-96 overflow-y-auto">
-              <BookingForm venueId={venue.id} />
+              <BookingForm venueId={venue.id} pricePerHour={venue.price} />
             </div>
           </div>
         </div>

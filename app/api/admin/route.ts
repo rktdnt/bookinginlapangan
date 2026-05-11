@@ -1,15 +1,16 @@
 import { query } from "@/lib/db";
+import { NextRequest } from "next/server";
 
-export async function GET(request) {
+export async function GET(request: NextRequest) {
   try {
     const admin = await query("SELECT * FROM admin");
     return Response.json({ success: true, data: admin });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-export async function POST(request) {
+export async function POST(request: NextRequest) {
   try {
     const { nama, email, password, no_hp } = await request.json();
 
@@ -23,7 +24,7 @@ export async function POST(request) {
     );
 
     return Response.json({ success: true, message: "Admin created successfully" });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 400 });
   }
 }

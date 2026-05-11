@@ -1,7 +1,8 @@
 import { query } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
+import { NextRequest } from "next/server";
 
-export async function POST(request) {
+export async function POST(request: NextRequest) {
   try {
     const { userType, email, password, ...data } = await request.json();
 
@@ -23,7 +24,7 @@ export async function POST(request) {
     }
 
     return Response.json({ success: true, message: 'Registration successful' });
-  } catch (error) {
+  } catch (error: any) {
     if (error.message.includes('Duplicate entry')) {
       return Response.json({ success: false, error: 'Email already exists' }, { status: 400 });
     }

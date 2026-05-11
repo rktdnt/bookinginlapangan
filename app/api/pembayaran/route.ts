@@ -1,17 +1,18 @@
 import { query } from "@/lib/db";
+import { NextRequest } from "next/server";
 
-export async function GET(request) {
+export async function GET(request: NextRequest) {
   try {
     const pembayaran = await query(
       "SELECT p.*, o.id_pelanggan, o.total_harga FROM pembayaran p JOIN orders o ON p.id_order = o.id_order"
     );
     return Response.json({ success: true, data: pembayaran });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-export async function POST(request) {
+export async function POST(request: NextRequest) {
   try {
     const { id_order, metode_pembayaran, tanggal_bayar, jumlah_bayar, bukti_pembayaran } = await request.json();
 
@@ -21,7 +22,7 @@ export async function POST(request) {
     );
 
     return Response.json({ success: true, message: "Pembayaran created successfully" });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 400 });
   }
 }
