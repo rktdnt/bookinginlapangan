@@ -5,14 +5,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import BookingForm from "../../components/BookingForm";
 
-type Venue = { id: string; name: string; image: string; price: number; location: string; description?: string };
+type Venue = { id: string; name: string; image: string; price: number; location: string; description?: string; facilities?: string[]; details?: Record<string, any> };
 
-const amenities = [
-  { icon: "🏟️", label: "Lapangan Standar" },
-  { icon: "💡", label: "Pencahayaan LED" },
-  { icon: "🚿", label: "Kamar Mandi" },
-  { icon: "🎒", label: "Ruang Ganti" },
-];
+// fallback icons for facilities
+const facilityIcon = (label: string) => {
+  if (/lampu|pencahayaan|light/i.test(label)) return "💡";
+  if (/kamar|toilet|wc|bath/i.test(label)) return "🚿";
+  if (/ruang ganti|ganti|locker/i.test(label)) return "🎒";
+  if (/parkir|parking/i.test(label)) return "🚗";
+  return "🏟️";
+};
 
 export default function VenueDetailPage() {
   const router = useRouter();
@@ -155,12 +157,15 @@ export default function VenueDetailPage() {
                 <div>
                   <h3 className="mb-4 text-sm font-semibold uppercase tracking-widest text-[var(--primary)]">Fasilitas Tersedia</h3>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {amenities.map((a) => (
-                      <div key={a.label} className="flex items-center gap-3 rounded-lg bg-white p-4">
-                        <span className="text-2xl">{a.icon}</span>
-                        <span className="font-medium text-[var(--foreground)]">{a.label}</span>
+                    {(venue.facilities && venue.facilities.length > 0 ? venue.facilities : []).map((label) => (
+                      <div key={label} className="flex items-center gap-3 rounded-lg bg-white p-4">
+                        <span className="text-2xl">{facilityIcon(label)}</span>
+                        <span className="font-medium text-[var(--foreground)]">{label}</span>
                       </div>
                     ))}
+                    {(!venue.facilities || venue.facilities.length === 0) && (
+                      <div className="text-sm text-zinc-500">Belum ada fasilitas tercatat untuk venue ini.</div>
+                    )}
                   </div>
                 </div>
               )}

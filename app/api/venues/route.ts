@@ -7,9 +7,9 @@ import { query } from "../../../lib/db";
 export const runtime = "nodejs";
 
 const sample = [
-  { id: "1", name: "Lapangan A", image: "/images/field1.svg", price: 150000, location: "Jakarta Utara", description: "Lapangan sintetis ukuran standar." },
-  { id: "2", name: "Lapangan B", image: "/images/field2.svg", price: 120000, location: "Jakarta Selatan", description: "Lapangan futsal nyaman dengan tribun." },
-  { id: "3", name: "Lapangan C", image: "/images/field3.svg", price: 100000, location: "Depok", description: "Lapangan rumput alami." },
+  { id: "1", name: "Lapangan A", image: "/images/field1.svg", price: 150000, location: "Jakarta Utara", description: "Lapangan sintetis ukuran standar.", facilities: ["Pencahayaan", "Kamar Mandi"], details: { size: "40x20", type: "Sintetis" } },
+  { id: "2", name: "Lapangan B", image: "/images/field2.svg", price: 120000, location: "Jakarta Selatan", description: "Lapangan futsal nyaman dengan tribun.", facilities: ["Tribun", "Parkir"], details: { size: "30x15", type: "Sintetis" } },
+  { id: "3", name: "Lapangan C", image: "/images/field3.svg", price: 100000, location: "Depok", description: "Lapangan rumput alami.", facilities: ["Rumput Alami", "Ruang Ganti"], details: { size: "45x25", type: "Alami" } },
 ];
 
 export async function GET(request: Request) {
@@ -28,16 +28,31 @@ export async function GET(request: Request) {
   try {
     if (id) {
       const rows = await query(
-        "SELECT id, name, image, price, location, description FROM venues WHERE id = ? LIMIT 1",
+        "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues WHERE id = ? LIMIT 1",
         [id]
       );
-      return NextResponse.json((rows as any[])[0] || null);
+      const r = (rows as any[])[0] || null;
+      if (r) {
+        try {
+          r.facilities = JSON.parse(String(r.facilities));
+        } catch {}
+        try {
+          r.details = JSON.parse(String(r.details));
+        } catch {}
+      }
+      return NextResponse.json(r || null);
     }
 
     const rows = await query(
-      "SELECT id, name, image, price, location, description FROM venues ORDER BY name ASC LIMIT 200"
+      "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues ORDER BY name ASC LIMIT 200"
     );
-    return NextResponse.json(rows);
+    // parse JSON fields
+    const parsed = (rows as any[]).map((r) => {
+      try { r.facilities = JSON.parse(String(r.facilities)); } catch { r.facilities = []; }
+      try { r.details = JSON.parse(String(r.details)); } catch { r.details = {}; }
+      return r;
+    });
+    return NextResponse.json(parsed);
   } catch {
     // Graceful fallback if DB is not ready.
     if (id) {
@@ -60,6 +75,8 @@ export async function POST(request: Request) {
     const price = Number(formData.get("price") || 0);
     const location = String(formData.get("location") || "").trim();
     const description = String(formData.get("description") || "").trim();
+    const facilitiesRaw = String(formData.get("facilities") || "").trim();
+    const detailsRaw = String(formData.get("details") || "").trim();
     const imageFile = formData.get("image");
 
     if (!name || !price || !location || !description) {
@@ -84,14 +101,32 @@ export async function POST(request: Request) {
     }
 
     const id = crypto.randomUUID();
+    // parse facilities and details
+    let facilitiesJson = JSON.stringify([]);
+    try {
+      if (facilitiesRaw.startsWith("[")) {
+        facilitiesJson = JSON.stringify(JSON.parse(facilitiesRaw));
+      } else if (facilitiesRaw.length) {
+        facilitiesJson = JSON.stringify(facilitiesRaw.split(',').map((s) => s.trim()).filter(Boolean));
+      }
+    } catch {}
+
+    let detailsJson = JSON.stringify({});
+    try {
+      detailsJson = detailsRaw ? JSON.stringify(JSON.parse(detailsRaw)) : JSON.stringify({});
+    } catch {
+      // if detailsRaw is not JSON, store as simple note
+      detailsJson = JSON.stringify({ note: detailsRaw });
+    }
+
     await query(
-      "INSERT INTO venues (id, name, image, price, location, description) VALUES (?, ?, ?, ?, ?, ?)",
-      [id, name, imagePath, price, location, description]
+      "INSERT INTO venues (id, name, image, price, location, description, facilities, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [id, name, imagePath, price, location, description, facilitiesJson, detailsJson]
     );
 
     return NextResponse.json({
       success: true,
-      venue: { id, name, image: imagePath, price, location, description },
+      venue: { id, name, image: imagePath, price, location, description, facilities: JSON.parse(facilitiesJson), details: JSON.parse(detailsJson) },
     }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message || "Failed to create venue" }, { status: 500 });

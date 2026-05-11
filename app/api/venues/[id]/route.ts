@@ -18,6 +18,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const price = Number(formData.get("price") || 0);
     const location = String(formData.get("location") || "").trim();
     const description = String(formData.get("description") || "").trim();
+    const facilitiesRaw = String(formData.get("facilities") || "").trim();
+    const detailsRaw = String(formData.get("details") || "").trim();
     const imageFile = formData.get("image");
 
     if (!name || !price || !location || !description) {
@@ -50,14 +52,31 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       imagePath = `/uploads/venues/${fileName}`;
     }
 
+    // parse facilities and details
+    let facilitiesJson = JSON.stringify([]);
+    try {
+      if (facilitiesRaw.startsWith("[")) {
+        facilitiesJson = JSON.stringify(JSON.parse(facilitiesRaw));
+      } else if (facilitiesRaw.length) {
+        facilitiesJson = JSON.stringify(facilitiesRaw.split(',').map((s) => s.trim()).filter(Boolean));
+      }
+    } catch {}
+
+    let detailsJson = JSON.stringify({});
+    try {
+      detailsJson = detailsRaw ? JSON.stringify(JSON.parse(detailsRaw)) : JSON.stringify({});
+    } catch {
+      detailsJson = JSON.stringify({ note: detailsRaw });
+    }
+
     await query(
-      "UPDATE venues SET name = ?, image = ?, price = ?, location = ?, description = ? WHERE id = ?",
-      [name, imagePath, price, location, description, id]
+      "UPDATE venues SET name = ?, image = ?, price = ?, location = ?, description = ?, facilities = ?, details = ? WHERE id = ?",
+      [name, imagePath, price, location, description, facilitiesJson, detailsJson, id]
     );
 
     return NextResponse.json({
       success: true,
-      venue: { id, name, image: imagePath, price, location, description },
+      venue: { id, name, image: imagePath, price, location, description, facilities: JSON.parse(facilitiesJson), details: JSON.parse(detailsJson) },
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message || "Failed to update venue" }, { status: 500 });
