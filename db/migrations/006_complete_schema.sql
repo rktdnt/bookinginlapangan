@@ -134,15 +134,15 @@ CREATE TABLE IF NOT EXISTS customer_service (
   FOREIGN KEY (id_mitra) REFERENCES mitra(id_mitra) ON DELETE SET NULL
 );
 
--- Create indices for better performance
-CREATE INDEX idx_lapangan_mitra ON lapangan(id_mitra);
-CREATE INDEX idx_orders_pelanggan ON orders(id_pelanggan);
-CREATE INDEX idx_orders_lapangan ON orders(id_lapangan);
-CREATE INDEX idx_orders_status ON orders(status_order);
-CREATE INDEX idx_pembayaran_order ON pembayaran(id_order);
-CREATE INDEX idx_review_pelanggan ON review(id_pelanggan);
-CREATE INDEX idx_review_mitra ON review(id_mitra);
-CREATE INDEX idx_broadcast_admin ON broadcast(id_admin);
-CREATE INDEX idx_customer_service_pelanggan ON customer_service(id_pelanggan);
-CREATE INDEX idx_customer_service_mitra ON customer_service(id_mitra);
-CREATE INDEX idx_customer_service_status ON customer_service(status_keluhan);
+-- Create indices for better performance (with IF NOT EXISTS for idempotency)
+CREATE INDEX IF NOT EXISTS idx_lapangan_mitra ON lapangan(id_mitra);
+CREATE INDEX IF NOT EXISTS idx_orders_pelanggan ON orders(id_pelanggan);
+CREATE INDEX IF NOT EXISTS idx_orders_lapangan ON orders(id_lapangan);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status_order);
+CREATE INDEX IF NOT EXISTS idx_pembayaran_order ON pembayaran(id_order);
+CREATE INDEX IF NOT EXISTS idx_review_pelanggan ON review(id_pelanggan);
+CREATE INDEX IF NOT EXISTS idx_review_mitra ON review(id_mitra);
+CREATE INDEX IF NOT EXISTS idx_broadcast_admin ON broadcast(id_admin);
+CREATE INDEX IF NOT EXISTS idx_customer_service_pelanggan ON customer_service(id_pelanggan);
+CREATE INDEX IF NOT EXISTS idx_customer_service_mitra ON customer_service(id_mitra);
+CREATE INDEX IF NOT EXISTS idx_customer_service_status ON customer_service(status_keluhan);
