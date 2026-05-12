@@ -41,6 +41,26 @@ function getMysqlConfig() {
 
 const migrationsDir = path.join(__dirname, '..', 'db', 'migrations');
 
+async function ensureMigrationTable(conn) {
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      filename VARCHAR(255) NOT NULL UNIQUE,
+      executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
+
+async function getAppliedMigrations(conn) {
+  const [rows] = await conn.query('SELECT filename FROM schema_migrations');
+  return new Set((rows || []).map((r) => r.filename));
+}
+
+function isSafeToSkip(err) {
+  const msg = String(err?.message || '').toLowerCase();
+  return msg.includes('duplicate column name') || msg.includes('duplicate key name') || msg.includes('already exists');
+}
+
 async function run() {
   const cfg = getMysqlConfig();
   const conn = cfg.uri
@@ -49,15 +69,35 @@ async function run() {
 
   try {
     console.log('Running migration...');
+    await ensureMigrationTable(conn);
+    const applied = await getAppliedMigrations(conn);
+
     const files = fs
       .readdirSync(migrationsDir)
       .filter((file) => file.endsWith('.sql'))
       .sort();
 
     for (const file of files) {
+      if (applied.has(file)) {
+        console.log(`- skip ${file} (already applied)`);
+        continue;
+      }
+
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-      await conn.query(sql);
+      try {
+        await conn.query(sql);
+        await conn.query('INSERT INTO schema_migrations (filename) VALUES (?)', [file]);
+        console.log(`- applied ${file}`);
+      } catch (err) {
+        if (isSafeToSkip(err)) {
+          console.log(`- skip ${file} (${err.message})`);
+          await conn.query('INSERT INTO schema_migrations (filename) VALUES (?)', [file]);
+          continue;
+        }
+        throw err;
+      }
     }
+
     console.log('Migration applied successfully.');
   } catch (err) {
     console.error('Migration failed:', err.message || err);
