@@ -1,14 +1,16 @@
-import { query } from "@/lib/db";
+import { getCollection, toObjectId, normalizeDoc } from "@/lib/db";
 import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const result = await query("SELECT * FROM pelanggan WHERE id_pelanggan = ?", [id]);
-    if (result.length === 0) {
-      return Response.json({ success: false, error: "Pelanggan not found" }, { status: 404 });
-    }
-    return Response.json({ success: true, data: result[0] });
+    const oid = toObjectId(id);
+    if (!oid) return Response.json({ success: false, error: "Invalid id" }, { status: 400 });
+
+    const col = await getCollection("pelanggan");
+    const doc = await col.findOne({ _id: oid });
+    if (!doc) return Response.json({ success: false, error: "Pelanggan not found" }, { status: 404 });
+    return Response.json({ success: true, data: normalizeDoc(doc) });
   } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
@@ -17,13 +19,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const oid = toObjectId(id);
+    if (!oid) return Response.json({ success: false, error: "Invalid id" }, { status: 400 });
+
     const { nama, email, no_hp, alamat } = await request.json();
-
-    await query(
-      "UPDATE pelanggan SET nama = ?, email = ?, no_hp = ?, alamat = ? WHERE id_pelanggan = ?",
-      [nama, email, no_hp, alamat, id]
-    );
-
+    const col = await getCollection("pelanggan");
+    await col.updateOne({ _id: oid }, { $set: { nama, email, no_hp, alamat, updated_at: new Date() } });
     return Response.json({ success: true, message: "Pelanggan updated successfully" });
   } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 400 });
@@ -33,7 +34,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    await query("DELETE FROM pelanggan WHERE id_pelanggan = ?", [id]);
+    const oid = toObjectId(id);
+    if (!oid) return Response.json({ success: false, error: "Invalid id" }, { status: 400 });
+
+    const col = await getCollection("pelanggan");
+    await col.deleteOne({ _id: oid });
     return Response.json({ success: true, message: "Pelanggan deleted successfully" });
   } catch (error: any) {
     return Response.json({ success: false, error: error.message }, { status: 400 });

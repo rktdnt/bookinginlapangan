@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-import { query } from "../../../lib/db";
+import { getCollection, toObjectId, normalizeDoc, normalizeDocs } from "../../../lib/db";
 
 export const runtime = "nodejs";
 
@@ -16,7 +16,9 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
 
-  const dbConfigured = Boolean(process.env.MYSQL_URL || process.env.DATABASE_URL || process.env.MYSQL_DATABASE);
+  const dbConfigured = Boolean(
+    process.env.MONGODB_URI || process.env.MONGODB_DATABASE
+  );
   if (!dbConfigured) {
     if (id) {
       const found = sample.find((s) => s.id === id);
@@ -26,35 +28,39 @@ export async function GET(request: Request) {
   }
 
   try {
+    const col = await getCollection("venues");
+
     if (id) {
-      const rows = await query(
-        "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, size, surface_type, hours, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues WHERE id = ? AND is_deleted = 0 LIMIT 1",
-        [id]
-      );
-      const r = (rows as any[])[0] || null;
+      const oid = toObjectId(id);
+      // Try ObjectId lookup first, then string id fallback
+      const doc = oid
+        ? await col.findOne({ _id: oid, is_deleted: { $ne: true } })
+        : await col.findOne({ id, is_deleted: { $ne: true } });
+
+      if (!doc) return NextResponse.json(null);
+
+      const r = normalizeDoc(doc);
       if (r) {
-        try {
-          r.facilities = JSON.parse(String(r.facilities));
-        } catch { r.facilities = []; }
-        try {
-          r.details = JSON.parse(String(r.details));
-        } catch { r.details = {}; }
+        if (!Array.isArray(r.facilities)) r.facilities = [];
+        if (!r.details || typeof r.details !== "object") r.details = {};
       }
-      return NextResponse.json(r || null);
+      return NextResponse.json(r);
     }
 
-    const rows = await query(
-      "SELECT id, name, image, price, location, description, COALESCE(JSON_EXTRACT(facilities, '$'), JSON_ARRAY()) as facilities, size, surface_type, hours, COALESCE(JSON_EXTRACT(details, '$'), JSON_OBJECT()) as details FROM venues WHERE is_deleted = 0 ORDER BY name ASC LIMIT 200"
-    );
-    // parse JSON fields
-    const parsed = (rows as any[]).map((r) => {
-      try { r.facilities = JSON.parse(String(r.facilities)); } catch { r.facilities = []; }
-      try { r.details = JSON.parse(String(r.details)); } catch { r.details = {}; }
+    const docs = await col
+      .find({ is_deleted: { $ne: true } })
+      .sort({ name: 1 })
+      .limit(200)
+      .toArray();
+
+    const parsed = normalizeDocs(docs).map((r) => {
+      if (!Array.isArray(r!.facilities)) r!.facilities = [];
+      if (!r!.details || typeof r!.details !== "object") r!.details = {};
       return r;
     });
     return NextResponse.json(parsed);
   } catch {
-    // Graceful fallback if DB is not ready.
+    // Graceful fallback if DB is not ready
     if (id) {
       const found = sample.find((s) => s.id === id);
       return NextResponse.json(found || null);
@@ -64,7 +70,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const dbConfigured = Boolean(process.env.MYSQL_URL || process.env.DATABASE_URL || process.env.MYSQL_DATABASE);
+  const dbConfigured = Boolean(
+    process.env.MONGODB_URI || process.env.MONGODB_DATABASE
+  );
   if (!dbConfigured) {
     return NextResponse.json({ success: false, error: "Database not configured" }, { status: 503 });
   }
@@ -88,13 +96,13 @@ export async function POST(request: Request) {
 
     let imagePath = "/images/placeholder.svg";
     if (imageFile && typeof imageFile !== "string") {
-      if (!String(imageFile.type || "").startsWith("image/")) {
+      if (!String((imageFile as File).type || "").startsWith("image/")) {
         return NextResponse.json({ success: false, error: "File must be an image" }, { status: 400 });
       }
-
-      const bytes = await imageFile.arrayBuffer();
+      const file = imageFile as File;
+      const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      const extension = path.extname(imageFile.name || "").toLowerCase() || ".jpg";
+      const extension = path.extname(file.name || "").toLowerCase() || ".jpg";
       const safeExtension = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"].includes(extension) ? extension : ".jpg";
       const fileName = `${crypto.randomUUID()}${safeExtension}`;
       const uploadDir = path.join(process.cwd(), "public", "uploads", "venues");
@@ -103,34 +111,44 @@ export async function POST(request: Request) {
       imagePath = `/uploads/venues/${fileName}`;
     }
 
-    const id = crypto.randomUUID();
-    // parse facilities and details
-    let facilitiesJson = JSON.stringify([]);
+    let facilities: string[] = [];
     try {
       if (facilitiesRaw.startsWith("[")) {
-        facilitiesJson = JSON.stringify(JSON.parse(facilitiesRaw));
+        facilities = JSON.parse(facilitiesRaw);
       } else if (facilitiesRaw.length) {
-        facilitiesJson = JSON.stringify(facilitiesRaw.split(',').map((s) => s.trim()).filter(Boolean));
+        facilities = facilitiesRaw.split(",").map((s) => s.trim()).filter(Boolean);
       }
     } catch {}
 
-    let detailsJson = JSON.stringify({});
+    let details: Record<string, any> = {};
     try {
-      detailsJson = detailsRaw ? JSON.stringify(JSON.parse(detailsRaw)) : JSON.stringify({});
+      details = detailsRaw ? JSON.parse(detailsRaw) : {};
     } catch {
-      // if detailsRaw is not JSON, store as simple note
-      detailsJson = JSON.stringify({ note: detailsRaw });
+      details = { note: detailsRaw };
     }
 
-    const res = await query(
-      "INSERT INTO venues (id, name, image, price, location, description, facilities, size, surface_type, hours, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [id, name, imagePath, price, location, description, facilitiesJson, size, surface_type, hours, detailsJson]
-    );
+    const col = await getCollection("venues");
+    const result = await col.insertOne({
+      name,
+      image: imagePath,
+      price,
+      location,
+      description,
+      facilities,
+      size,
+      surface_type,
+      hours,
+      details,
+      is_deleted: false,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
 
-    return NextResponse.json({
-      success: true,
-      venue: { id, name, image: imagePath, price, location, description, facilities: JSON.parse(facilitiesJson), size, surface_type, hours },
-    }, { status: 201 });
+    const id = String(result.insertedId);
+    return NextResponse.json(
+      { success: true, venue: { id, name, image: imagePath, price, location, description, facilities, size, surface_type, hours } },
+      { status: 201 }
+    );
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message || "Failed to create venue" }, { status: 500 });
   }

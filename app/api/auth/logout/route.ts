@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { query } from "../../../../lib/db";
+import { getCollection } from "../../../../lib/db";
 import { SESSION_COOKIE_NAME, hashSessionToken } from "../../../../lib/auth";
 
 export async function POST(request: Request) {
@@ -10,8 +10,9 @@ export async function POST(request: Request) {
   if (token) {
     const tokenHash = hashSessionToken(token);
     try {
-      await query("DELETE FROM sessions WHERE token_hash = ?", [tokenHash]);
-    } catch (error: any) {
+      const sessionsCol = await getCollection("sessions");
+      await sessionsCol.deleteOne({ token_hash: tokenHash });
+    } catch {
       // Ignore DB errors on logout; still clear cookie.
     }
   }

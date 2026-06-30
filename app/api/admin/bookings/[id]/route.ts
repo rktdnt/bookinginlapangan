@@ -1,24 +1,22 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { query } from "../../../../../lib/db";
-import { SESSION_COOKIE_NAME, hashSessionToken } from "../../../../../lib/auth";
+import { getCollection, toObjectId } from "../../../../lib/db";
+import { SESSION_COOKIE_NAME, hashSessionToken } from "../../../../lib/auth";
 
 async function getAdminUser() {
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
-
   const tokenHash = hashSessionToken(token);
-  const rows = (await query(
-    `SELECT u.id, u.name, u.email
-     FROM sessions s
-     JOIN users u ON u.id = s.user_id
-     WHERE s.token_hash = ? AND s.expires_at > NOW()
-     LIMIT 1`,
-    [tokenHash]
-  )) as any[];
-
-  const user = rows[0];
-  const isAdmin = (process.env.ADMIN_EMAIL && user?.email === process.env.ADMIN_EMAIL) || user?.id === 1;
+  const sessionsCol = await getCollection("sessions");
+  const session = await sessionsCol.findOne({
+    token_hash: tokenHash,
+    expires_at: { $gt: new Date() },
+  });
+  if (!session) return null;
+  const usersCol = await getCollection("users");
+  const user = await usersCol.findOne({ _id: session.user_id });
+  const isAdmin =
+    (process.env.ADMIN_EMAIL && user?.email === process.env.ADMIN_EMAIL) || false;
   return user && isAdmin ? user : null;
 }
 
@@ -37,12 +35,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: false, error: "Missing fields" }, { status: 400 });
     }
 
-    const bookings = (await query(
-      `SELECT id, status FROM bookings WHERE id = ? LIMIT 1`,
-      [id]
-    )) as any[];
+    const oid = toObjectId(id);
+    if (!oid) {
+      return NextResponse.json({ success: false, error: "Invalid booking id" }, { status: 400 });
+    }
 
-    const booking = bookings[0];
+    const bookingsCol = await getCollection("bookings");
+    const booking = await bookingsCol.findOne({ _id: oid });
+
     if (!booking) {
       return NextResponse.json({ success: false, error: "Booking not found" }, { status: 404 });
     }
@@ -51,13 +51,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (booking.status === "confirmed") {
         return NextResponse.json({ success: true, bookingId: id, status: "confirmed" });
       }
-
-      await query(`UPDATE bookings SET status = ? WHERE id = ?`, ["confirmed", id]);
+      await bookingsCol.updateOne({ _id: oid }, { $set: { status: "confirmed", updated_at: new Date() } });
       return NextResponse.json({ success: true, bookingId: id, status: "confirmed" });
     }
 
     if (action === "cancel") {
-      await query(`UPDATE bookings SET status = ? WHERE id = ?`, ["cancelled", id]);
+      await bookingsCol.updateOne({ _id: oid }, { $set: { status: "cancelled", updated_at: new Date() } });
       return NextResponse.json({ success: true, bookingId: id, status: "cancelled" });
     }
 

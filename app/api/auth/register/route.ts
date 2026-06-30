@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { transaction } from "../../../../lib/db";
+import { getCollection } from "../../../../lib/db";
 import {
   createSessionToken,
   getSessionExpiresAt,
@@ -24,48 +24,47 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Password minimal 8 karakter" }, { status: 400 });
     }
 
-    const result = await transaction(async (client: any) => {
-      const [existing] = await client.query("SELECT id FROM users WHERE email = ? LIMIT 1", [email]);
-      if ((existing as any[]).length > 0) {
-        const error = new Error("EMAIL_EXISTS");
-        // @ts-expect-error custom code
-        error.code = "EMAIL_EXISTS";
-        throw error;
-      }
+    const usersCol = await getCollection("users");
+    const existing = await usersCol.findOne({ email });
+    if (existing) {
+      return NextResponse.json({ success: false, error: "Email sudah terdaftar" }, { status: 409 });
+    }
 
-      const passwordHash = hashPassword(password);
-      const [insertResult] = await client.query(
-        "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
-        [name, email, passwordHash]
-      );
-      const userId = (insertResult as any).insertId;
-      const [userRows] = await client.query("SELECT id, name, email FROM users WHERE id = ? LIMIT 1", [userId]);
-      const user = (userRows as any[])[0];
-      const sessionToken = createSessionToken();
-      const tokenHash = hashSessionToken(sessionToken);
-      const expiresAt = getSessionExpiresAt();
-
-      await client.query(
-        "INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
-        [user.id, tokenHash, expiresAt]
-      );
-
-      return { user, sessionToken, expiresAt };
+    const passwordHash = hashPassword(password);
+    const insertResult = await usersCol.insertOne({
+      name,
+      email,
+      password_hash: passwordHash,
+      created_at: new Date(),
+      updated_at: new Date(),
     });
 
-    const response = NextResponse.json({ success: true, user: result.user }, { status: 201 });
-    response.cookies.set(SESSION_COOKIE_NAME, result.sessionToken, {
+    const userId = insertResult.insertedId;
+    const sessionToken = createSessionToken();
+    const tokenHash = hashSessionToken(sessionToken);
+    const expiresAt = getSessionExpiresAt();
+
+    const sessionsCol = await getCollection("sessions");
+    await sessionsCol.insertOne({
+      user_id: userId,
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      created_at: new Date(),
+    });
+
+    const response = NextResponse.json(
+      { success: true, user: { id: String(userId), name, email } },
+      { status: 201 }
+    );
+    response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      expires: result.expiresAt,
+      expires: expiresAt,
     });
     return response;
   } catch (error: any) {
-    if (String(error?.message || "") === "EMAIL_EXISTS" || error?.code === "EMAIL_EXISTS") {
-      return NextResponse.json({ success: false, error: "Email sudah terdaftar" }, { status: 409 });
-    }
     return NextResponse.json({ success: false, error: "Gagal membuat akun" }, { status: 500 });
   }
 }

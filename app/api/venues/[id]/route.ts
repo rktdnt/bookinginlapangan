@@ -1,18 +1,23 @@
 import { NextResponse } from "next/server";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
-import { query } from "../../../../lib/db";
+import { getCollection, toObjectId } from "../../../../lib/db";
 
 export const runtime = "nodejs";
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const dbConfigured = Boolean(process.env.MYSQL_URL || process.env.DATABASE_URL || process.env.MYSQL_DATABASE);
+  const dbConfigured = Boolean(process.env.MONGODB_URI || process.env.MONGODB_DATABASE);
   if (!dbConfigured) {
     return NextResponse.json({ success: false, error: "Database not configured" }, { status: 503 });
   }
 
   try {
     const { id } = await params;
+    const oid = toObjectId(id);
+    if (!oid) {
+      return NextResponse.json({ success: false, error: "Invalid venue id" }, { status: 400 });
+    }
+
     const formData = await request.formData();
     const name = String(formData.get("name") || "").trim();
     const price = Number(formData.get("price") || 0);
@@ -28,24 +33,21 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ success: false, error: "Missing fields" }, { status: 400 });
     }
 
-    const existingRows = (await query(
-      "SELECT image FROM venues WHERE id = ? AND is_deleted = 0 LIMIT 1",
-      [id]
-    )) as any[];
-
-    if (!existingRows[0]) {
+    const col = await getCollection("venues");
+    const existing = await col.findOne({ _id: oid, is_deleted: { $ne: true } });
+    if (!existing) {
       return NextResponse.json({ success: false, error: "Venue not found" }, { status: 404 });
     }
 
-    let imagePath = String(existingRows[0].image || "/images/placeholder.svg");
+    let imagePath = String(existing.image || "/images/placeholder.svg");
     if (imageFile && typeof imageFile !== "string") {
-      if (!String(imageFile.type || "").startsWith("image/")) {
+      const file = imageFile as File;
+      if (!String(file.type || "").startsWith("image/")) {
         return NextResponse.json({ success: false, error: "File must be an image" }, { status: 400 });
       }
-
-      const bytes = await imageFile.arrayBuffer();
+      const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      const extension = path.extname(imageFile.name || "").toLowerCase() || ".jpg";
+      const extension = path.extname(file.name || "").toLowerCase() || ".jpg";
       const safeExtension = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"].includes(extension) ? extension : ".jpg";
       const fileName = `${id}-${Date.now()}${safeExtension}`;
       const uploadDir = path.join(process.cwd(), "public", "uploads", "venues");
@@ -54,24 +56,23 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       imagePath = `/uploads/venues/${fileName}`;
     }
 
-    // parse facilities and details
-    let facilitiesJson = JSON.stringify([]);
+    let facilities: string[] = [];
     try {
       if (facilitiesRaw.startsWith("[")) {
-        facilitiesJson = JSON.stringify(JSON.parse(facilitiesRaw));
+        facilities = JSON.parse(facilitiesRaw);
       } else if (facilitiesRaw.length) {
-        facilitiesJson = JSON.stringify(facilitiesRaw.split(',').map((s) => s.trim()).filter(Boolean));
+        facilities = facilitiesRaw.split(",").map((s) => s.trim()).filter(Boolean);
       }
     } catch {}
 
-    await query(
-      "UPDATE venues SET name = ?, image = ?, price = ?, location = ?, description = ?, facilities = ?, size = ?, surface_type = ?, hours = ? WHERE id = ?",
-      [name, imagePath, price, location, description, facilitiesJson, size, surface_type, hours, id]
+    await col.updateOne(
+      { _id: oid },
+      { $set: { name, image: imagePath, price, location, description, facilities, size, surface_type, hours, updated_at: new Date() } }
     );
 
     return NextResponse.json({
       success: true,
-      venue: { id, name, image: imagePath, price, location, description, facilities: JSON.parse(facilitiesJson), size, surface_type, hours },
+      venue: { id, name, image: imagePath, price, location, description, facilities, size, surface_type, hours },
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message || "Failed to update venue" }, { status: 500 });
@@ -79,14 +80,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const dbConfigured = Boolean(process.env.MYSQL_URL || process.env.DATABASE_URL || process.env.MYSQL_DATABASE);
+  const dbConfigured = Boolean(process.env.MONGODB_URI || process.env.MONGODB_DATABASE);
   if (!dbConfigured) {
     return NextResponse.json({ success: false, error: "Database not configured" }, { status: 503 });
   }
 
   try {
     const { id } = await params;
-    await query("UPDATE venues SET is_deleted = 1 WHERE id = ?", [id]);
+    const oid = toObjectId(id);
+    if (!oid) {
+      return NextResponse.json({ success: false, error: "Invalid venue id" }, { status: 400 });
+    }
+    const col = await getCollection("venues");
+    await col.updateOne({ _id: oid }, { $set: { is_deleted: true, updated_at: new Date() } });
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message || "Failed to delete venue" }, { status: 500 });

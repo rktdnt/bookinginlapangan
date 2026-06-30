@@ -3,45 +3,53 @@ import { cookies } from "next/headers";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
-import { query } from "../../../../lib/db";
+import { getCollection, toObjectId } from "../../../../lib/db";
 import { SESSION_COOKIE_NAME, hashSessionToken } from "../../../../lib/auth";
 
+async function getSessionUserId(): Promise<any | null> {
+  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+  if (!token) return null;
+  const tokenHash = hashSessionToken(token);
+  const sessionsCol = await getCollection("sessions");
+  const session = await sessionsCol.findOne({
+    token_hash: tokenHash,
+    expires_at: { $gt: new Date() },
+  });
+  return session ? session.user_id : null;
+}
+
 async function updateBookingPayment(
-  bookingId: string,
+  oid: any,
   status: "pending" | "confirmed",
   method: "qris" | "transfer",
   proofPath: string | null,
   proofName: string | null
 ) {
-  try {
-    await query(
-      `UPDATE bookings SET status = ?, payment_method = ?, payment_proof_path = ?, payment_proof_name = ? WHERE id = ?`,
-      [status, method, proofPath, proofName, bookingId]
-    );
-  } catch (error: any) {
-    // Backward compatibility when migration 005 is not applied yet.
-    if (error?.code === "ER_BAD_FIELD_ERROR") {
-      await query(`UPDATE bookings SET status = ? WHERE id = ?`, [status, bookingId]);
-      return;
+  const bookingsCol = await getCollection("bookings");
+  await bookingsCol.updateOne(
+    { _id: oid },
+    {
+      $set: {
+        status,
+        payment_method: method,
+        payment_proof_path: proofPath,
+        payment_proof_name: proofName,
+        updated_at: new Date(),
+      },
     }
-    throw error;
-  }
+  );
 }
 
 async function readPayload(request: Request) {
   const contentType = request.headers.get("content-type") || "";
-
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData();
     const values: Record<string, string | File> = {};
-
     for (const [key, value] of formData.entries()) {
       values[key] = value;
     }
-
     return values;
   }
-
   try {
     return await request.json();
   } catch {
@@ -61,36 +69,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Missing fields" }, { status: 400 });
     }
 
-    // Verify user owns this booking
-    const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
-    let userId: number | null = null;
-    if (token) {
-      const tokenHash = hashSessionToken(token);
-      const rows = (await query(
-        `SELECT u.id FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > NOW() LIMIT 1`,
-        [tokenHash]
-      )) as any[];
-      if (rows[0]) userId = rows[0].id;
+    const userId = await getSessionUserId();
+    const oid = toObjectId(bookingId);
+    if (!oid) {
+      return NextResponse.json({ success: false, error: "Invalid booking id" }, { status: 400 });
     }
 
-    const bookings = (await query(
-      `SELECT id, user_id FROM bookings WHERE id = ? LIMIT 1`,
-      [bookingId]
-    )) as any[];
+    const bookingsCol = await getCollection("bookings");
+    const booking = await bookingsCol.findOne({ _id: oid });
 
-    const booking = bookings[0];
     if (!booking) {
       return NextResponse.json({ success: false, error: "Booking not found" }, { status: 404 });
     }
 
     // If user is logged in, verify they own it; if not logged in, allow (guest checkout)
-    if (userId && booking.user_id && booking.user_id !== userId) {
+    if (userId && booking.user_id && String(booking.user_id) !== String(userId)) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 403 });
     }
 
     if (paymentMethod === "qris") {
-      await updateBookingPayment(bookingId, "confirmed", "qris", null, null);
-
+      await updateBookingPayment(oid, "confirmed", "qris", null, null);
       return NextResponse.json({ success: true, bookingId, status: "confirmed", requiresAdminConfirmation: false });
     }
 
@@ -98,7 +96,6 @@ export async function POST(request: Request) {
       if (!proofFile) {
         return NextResponse.json({ success: false, error: "Bukti pembayaran transfer wajib diupload" }, { status: 400 });
       }
-
       const arrayBuffer = await proofFile.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const extension = path.extname(proofFile.name || "").toLowerCase() || ".png";
@@ -106,12 +103,9 @@ export async function POST(request: Request) {
       const fileName = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}${safeExtension}`;
       const uploadDir = path.join(process.cwd(), "public", "uploads", "payment-proofs");
       const relativePath = `/uploads/payment-proofs/${fileName}`;
-
       await mkdir(uploadDir, { recursive: true });
       await writeFile(path.join(uploadDir, fileName), buffer);
-
-      await updateBookingPayment(bookingId, "pending", "transfer", relativePath, proofFile.name);
-
+      await updateBookingPayment(oid, "pending", "transfer", relativePath, proofFile.name);
       return NextResponse.json({
         success: true,
         bookingId,
@@ -121,15 +115,12 @@ export async function POST(request: Request) {
       });
     }
 
-    // Legacy mock card flow kept for compatibility if older clients still send it.
     if (paymentMethod === "card") {
       const lastDigit = parseInt(cardNumber.slice(-1));
       if (isNaN(lastDigit) || lastDigit % 2 !== 0) {
         return NextResponse.json({ success: false, error: "Payment failed: Invalid card" }, { status: 400 });
       }
-
-      await updateBookingPayment(bookingId, "confirmed", "qris", null, null);
-
+      await updateBookingPayment(oid, "confirmed", "qris", null, null);
       return NextResponse.json({ success: true, bookingId, status: "confirmed", requiresAdminConfirmation: false });
     }
 

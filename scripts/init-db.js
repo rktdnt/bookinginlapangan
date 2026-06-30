@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Simple MySQL migration runner for bookinglapangan
-const mysql = require('mysql2/promise');
+// MongoDB index setup for bookinginlapangan
+// Replaces the MySQL migration runner (init-db.js)
+const { MongoClient } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
 
@@ -23,87 +24,123 @@ function loadEnvLocal() {
   return out;
 }
 
-function getMysqlConfig() {
-  const envLocal = loadEnvLocal();
-  const mysqlUrl = process.env.MYSQL_URL || process.env.DATABASE_URL || envLocal.MYSQL_URL || envLocal.DATABASE_URL;
-  if (mysqlUrl) {
-    return { uri: mysqlUrl, multipleStatements: true };
-  }
+function getMongoConfig() {
+  const env = loadEnvLocal();
   return {
-    host: process.env.MYSQL_HOST || envLocal.MYSQL_HOST || 'localhost',
-    port: Number(process.env.MYSQL_PORT || envLocal.MYSQL_PORT || 3306),
-    user: process.env.MYSQL_USER || envLocal.MYSQL_USER || 'root',
-    password: process.env.MYSQL_PASSWORD || envLocal.MYSQL_PASSWORD || '',
-    database: process.env.MYSQL_DATABASE || envLocal.MYSQL_DATABASE || 'bookinginlapangan',
-    multipleStatements: true,
+    uri: process.env.MONGODB_URI || env.MONGODB_URI || 'mongodb://localhost:27017',
+    database: process.env.MONGODB_DATABASE || env.MONGODB_DATABASE || 'bookinginlapangan',
   };
 }
 
-const migrationsDir = path.join(__dirname, '..', 'db', 'migrations');
-
-async function ensureMigrationTable(conn) {
-  await conn.query(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      filename VARCHAR(255) NOT NULL UNIQUE,
-      executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-}
-
-async function getAppliedMigrations(conn) {
-  const [rows] = await conn.query('SELECT filename FROM schema_migrations');
-  return new Set((rows || []).map((r) => r.filename));
-}
-
-function isSafeToSkip(err) {
-  const msg = String(err?.message || '').toLowerCase();
-  return msg.includes('duplicate column name') || msg.includes('duplicate key name') || msg.includes('already exists');
-}
-
 async function run() {
-  const cfg = getMysqlConfig();
-  const conn = cfg.uri
-    ? await mysql.createConnection({ uri: cfg.uri, multipleStatements: true })
-    : await mysql.createConnection({ ...cfg, multipleStatements: true });
+  const { uri, database } = getMongoConfig();
+  const client = new MongoClient(uri);
 
   try {
-    console.log('Running migration...');
-    await ensureMigrationTable(conn);
-    const applied = await getAppliedMigrations(conn);
+    await client.connect();
+    console.log(`Connected to MongoDB at ${uri}`);
+    const db = client.db(database);
+    console.log(`Using database: ${database}`);
 
-    const files = fs
-      .readdirSync(migrationsDir)
-      .filter((file) => file.endsWith('.sql'))
-      .sort();
+    // -----------------------------------------------------------------------
+    // users collection
+    // -----------------------------------------------------------------------
+    await db.collection('users').createIndex({ email: 1 }, { unique: true });
+    console.log('- index: users.email (unique)');
 
-    for (const file of files) {
-      if (applied.has(file)) {
-        console.log(`- skip ${file} (already applied)`);
-        continue;
-      }
+    // -----------------------------------------------------------------------
+    // sessions collection
+    // -----------------------------------------------------------------------
+    await db.collection('sessions').createIndex({ token_hash: 1 }, { unique: true });
+    await db.collection('sessions').createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 });
+    console.log('- index: sessions.token_hash (unique), sessions.expires_at (TTL)');
 
-      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-      try {
-        await conn.query(sql);
-        await conn.query('INSERT INTO schema_migrations (filename) VALUES (?)', [file]);
-        console.log(`- applied ${file}`);
-      } catch (err) {
-        if (isSafeToSkip(err)) {
-          console.log(`- skip ${file} (${err.message})`);
-          await conn.query('INSERT INTO schema_migrations (filename) VALUES (?)', [file]);
-          continue;
-        }
-        throw err;
-      }
-    }
+    // -----------------------------------------------------------------------
+    // admin collection
+    // -----------------------------------------------------------------------
+    await db.collection('admin').createIndex({ email: 1 }, { unique: true });
+    console.log('- index: admin.email (unique)');
 
-    console.log('Migration applied successfully.');
+    // -----------------------------------------------------------------------
+    // mitra collection
+    // -----------------------------------------------------------------------
+    await db.collection('mitra').createIndex({ email: 1 }, { unique: true });
+    console.log('- index: mitra.email (unique)');
+
+    // -----------------------------------------------------------------------
+    // pelanggan collection
+    // -----------------------------------------------------------------------
+    await db.collection('pelanggan').createIndex({ email: 1 }, { unique: true });
+    console.log('- index: pelanggan.email (unique)');
+
+    // -----------------------------------------------------------------------
+    // lapangan collection
+    // -----------------------------------------------------------------------
+    await db.collection('lapangan').createIndex({ id_mitra: 1 });
+    console.log('- index: lapangan.id_mitra');
+
+    // -----------------------------------------------------------------------
+    // venues collection
+    // -----------------------------------------------------------------------
+    await db.collection('venues').createIndex({ name: 1 });
+    await db.collection('venues').createIndex({ is_deleted: 1 });
+    console.log('- index: venues.name, venues.is_deleted');
+
+    // -----------------------------------------------------------------------
+    // bookings collection
+    // -----------------------------------------------------------------------
+    await db.collection('bookings').createIndex({ user_id: 1 });
+    await db.collection('bookings').createIndex({ venue_id: 1 });
+    await db.collection('bookings').createIndex({ status: 1 });
+    console.log('- index: bookings.user_id, bookings.venue_id, bookings.status');
+
+    // -----------------------------------------------------------------------
+    // orders collection
+    // -----------------------------------------------------------------------
+    await db.collection('orders').createIndex({ id_pelanggan: 1 });
+    await db.collection('orders').createIndex({ id_lapangan: 1 });
+    await db.collection('orders').createIndex({ status_order: 1 });
+    console.log('- index: orders.id_pelanggan, orders.id_lapangan, orders.status_order');
+
+    // -----------------------------------------------------------------------
+    // pembayaran collection
+    // -----------------------------------------------------------------------
+    await db.collection('pembayaran').createIndex({ id_order: 1 }, { unique: true });
+    console.log('- index: pembayaran.id_order (unique)');
+
+    // -----------------------------------------------------------------------
+    // review collection
+    // -----------------------------------------------------------------------
+    await db.collection('review').createIndex({ id_pelanggan: 1 });
+    await db.collection('review').createIndex({ id_mitra: 1 });
+    console.log('- index: review.id_pelanggan, review.id_mitra');
+
+    // -----------------------------------------------------------------------
+    // broadcast collection
+    // -----------------------------------------------------------------------
+    await db.collection('broadcast').createIndex({ id_admin: 1 });
+    console.log('- index: broadcast.id_admin');
+
+    // -----------------------------------------------------------------------
+    // customer_service collection
+    // -----------------------------------------------------------------------
+    await db.collection('customer_service').createIndex({ id_pelanggan: 1 });
+    await db.collection('customer_service').createIndex({ id_mitra: 1 });
+    await db.collection('customer_service').createIndex({ status_keluhan: 1 });
+    console.log('- index: customer_service.id_pelanggan, .id_mitra, .status_keluhan');
+
+    // -----------------------------------------------------------------------
+    // riwayat collection
+    // -----------------------------------------------------------------------
+    await db.collection('riwayat').createIndex({ id_order: 1 }, { unique: true });
+    console.log('- index: riwayat.id_order (unique)');
+
+    console.log('\nMongoDB indexes created successfully.');
   } catch (err) {
-    console.error('Migration failed:', err.message || err);
+    console.error('Index setup failed:', err.message || err);
     process.exitCode = 1;
   } finally {
-    await conn.end();
+    await client.close();
   }
 }
 

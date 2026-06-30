@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { query } from "../../../../lib/db";
+import { getCollection } from "../../../../lib/db";
 import { SESSION_COOKIE_NAME, hashSessionToken } from "../../../../lib/auth";
 
 export async function GET() {
@@ -10,20 +10,30 @@ export async function GET() {
   }
 
   const tokenHash = hashSessionToken(token);
-  const rows = await query(
-    `SELECT u.id, u.name, u.email
-     FROM sessions s
-     JOIN users u ON u.id = s.user_id
-     WHERE s.token_hash = ? AND s.expires_at > NOW()
-     LIMIT 1`,
-    [tokenHash]
-  ) as any[];
+  const sessionsCol = await getCollection("sessions");
 
-  if (!rows[0]) {
+  const session = await sessionsCol.findOne({
+    token_hash: tokenHash,
+    expires_at: { $gt: new Date() },
+  });
+
+  if (!session) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
 
-  const user = rows[0];
-  const isAdmin = (process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL) || user.id === 1;
-  return NextResponse.json({ authenticated: true, user: { ...user, isAdmin } });
+  const usersCol = await getCollection("users");
+  const user = await usersCol.findOne({ _id: session.user_id });
+
+  if (!user) {
+    return NextResponse.json({ authenticated: false }, { status: 401 });
+  }
+
+  const isAdmin =
+    (process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL) ||
+    false;
+
+  return NextResponse.json({
+    authenticated: true,
+    user: { id: String(user._id), name: user.name, email: user.email, isAdmin },
+  });
 }

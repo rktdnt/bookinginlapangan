@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { transaction } from "../../../../lib/db";
+import { getCollection } from "../../../../lib/db";
 import {
   createSessionToken,
   getSessionExpiresAt,
@@ -19,44 +19,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Email dan password wajib diisi" }, { status: 400 });
     }
 
-    const result = await transaction(async (client: any) => {
-      const [userRows] = await client.query(
-        "SELECT id, name, email, password_hash FROM users WHERE email = ? LIMIT 1",
-        [email]
-      );
-      const user = (userRows as any[])[0];
-      if (!user || !verifyPassword(password, user.password_hash)) {
-        const error = new Error("INVALID_CREDENTIALS");
-        // @ts-expect-error custom code
-        error.code = "INVALID_CREDENTIALS";
-        throw error;
-      }
+    const usersCol = await getCollection("users");
+    const user = await usersCol.findOne({ email });
 
-      const sessionToken = createSessionToken();
-      const tokenHash = hashSessionToken(sessionToken);
-      const expiresAt = getSessionExpiresAt();
+    if (!user || !verifyPassword(password, user.password_hash)) {
+      return NextResponse.json({ success: false, error: "Email atau password salah" }, { status: 401 });
+    }
 
-      await client.query(
-        "INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
-        [user.id, tokenHash, expiresAt]
-      );
+    const sessionToken = createSessionToken();
+    const tokenHash = hashSessionToken(sessionToken);
+    const expiresAt = getSessionExpiresAt();
 
-      return { user: { id: user.id, name: user.name, email: user.email }, sessionToken, expiresAt };
+    const sessionsCol = await getCollection("sessions");
+    await sessionsCol.insertOne({
+      user_id: user._id,
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      created_at: new Date(),
     });
 
-    const response = NextResponse.json({ success: true, user: result.user }, { status: 200 });
-    response.cookies.set(SESSION_COOKIE_NAME, result.sessionToken, {
+    const response = NextResponse.json(
+      { success: true, user: { id: String(user._id), name: user.name, email: user.email } },
+      { status: 200 }
+    );
+    response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      expires: result.expiresAt,
+      expires: expiresAt,
     });
     return response;
   } catch (error: any) {
-    if (String(error?.message || "") === "INVALID_CREDENTIALS" || error?.code === "INVALID_CREDENTIALS") {
-      return NextResponse.json({ success: false, error: "Email atau password salah" }, { status: 401 });
-    }
     return NextResponse.json({ success: false, error: "Gagal login" }, { status: 500 });
   }
 }

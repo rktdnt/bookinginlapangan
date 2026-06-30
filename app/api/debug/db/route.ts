@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
-import { query } from "../../../../lib/db";
+import { getDb } from "../../../../lib/db";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   const envPresent = Boolean(
-    process.env.MYSQL_URL || process.env.DATABASE_URL || process.env.MYSQL_DATABASE || process.env.MYSQL_HOST
+    process.env.MONGODB_URI || process.env.MONGODB_DATABASE
   );
 
   try {
-    const rows = await query("SELECT 1 as ok LIMIT 1");
-    return NextResponse.json({ envPresent, canConnect: true, result: rows });
+    const db = await getDb();
+    // Ping the deployment to confirm connection
+    await db.command({ ping: 1 });
+    return NextResponse.json({ envPresent, canConnect: true, driver: "mongodb" });
   } catch (err: any) {
-    return NextResponse.json({ envPresent, canConnect: false, error: err?.message || String(err) }, { status: 200 });
+    return NextResponse.json(
+      { envPresent, canConnect: false, driver: "mongodb", error: err?.message || String(err) },
+      { status: 200 }
+    );
   }
 }
